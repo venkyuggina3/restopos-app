@@ -126,10 +126,25 @@ export default function POSPage() {
 
             {/* Cart Area */}
             <div className="w-96 flex-shrink-0 bg-surface border-l border-border flex flex-col shadow-2xl relative z-10 transition-transform">
-                <div className="p-6 border-b border-border bg-background">
-                    <div className="flex justify-between items-center bg-surface p-2 rounded-xl border border-border">
-                        <div className="px-4 py-2 text-sm text-gray-400">Order # New</div>
-                        <button onClick={logout} className="text-xs px-3 py-1.5 bg-red-500/10 text-red-500 rounded-lg hover:bg-red-500/20">Sign Out</button>
+                <div className="p-4 border-b border-border bg-background">
+                    <div className="flex justify-between items-center mb-4">
+                        <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold">
+                                {user?.name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || "?"}
+                            </div>
+                            <div>
+                                <h3 className="text-white font-medium text-sm leading-none">{user?.name || user?.email}</h3>
+                                <p className="text-gray-400 text-xs mt-1 capitalize">{user?.role || "Staff"}</p>
+                            </div>
+                        </div>
+                        <button onClick={logout} className="text-xs px-3 py-1.5 bg-red-500/10 text-red-500 rounded-lg hover:bg-red-500/20 font-medium transition-colors">Sign Out</button>
+                    </div>
+
+                    <div className="flex justify-between items-center bg-surface p-3 rounded-xl border border-border">
+                        <div className="text-sm font-medium text-white">Current Check</div>
+                        <div className="text-xs font-mono text-gray-400 bg-background px-2 py-1 rounded">
+                            {cart.length > 0 ? "InProgress" : "New Order"}
+                        </div>
                     </div>
                 </div>
 
