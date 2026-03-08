@@ -49,6 +49,8 @@ export interface Order {
     paymentMethod?: string;
     cashierId?: string;
     isGuest?: boolean;
+    voidReason?: string;
+    voidedBy?: string;
 }
 
 export interface Transaction {
@@ -58,4 +60,10 @@ export interface Transaction {
     paymentMethod: string; // "card" | "cash" | "qr"
     status: "pending" | "success" | "failed";
     timestamp: number;
+}
+
+export interface VoidReason {
+    id: string;
+    reason: string;
+    isActive: boolean;
 }

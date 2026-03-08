@@ -62,3 +62,20 @@ export async function getSavedOrders(): Promise<Order[]> {
     const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() as any) } as Order));
 }
+
+// VOID REASONS
+export async function getVoidReasons(): Promise<any[]> {
+    const q = query(collection(db, "void_reasons"));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+}
+
+export async function addVoidReason(reason: string) {
+    const newRef = doc(collection(db, "void_reasons"));
+    await setDoc(newRef, { id: newRef.id, reason, isActive: true });
+    return newRef.id;
+}
+
+export async function updateVoidReason(id: string, isActive: boolean) {
+    await updateDoc(doc(db, "void_reasons", id), { isActive });
+}

@@ -1,9 +1,9 @@
 "use client";
 
 import { useAuth } from "@/lib/context/AuthContext";
-import { createOrder, getCategories, getMenuItems, getSavedOrders, updateOrder } from "@/lib/firebase/services";
-import { Category, MenuItem, Order, OrderItem } from "@/lib/types";
-import { Banknote, Bookmark, ChevronRight, CreditCard, Layers, Loader2, Minus, Plus, QrCode, ShoppingCart } from "lucide-react";
+import { createOrder, getCategories, getMenuItems, getSavedOrders, getVoidReasons, updateOrder } from "@/lib/firebase/services";
+import { Category, MenuItem, Order, OrderItem, VoidReason } from "@/lib/types";
+import { Banknote, Bookmark, ChevronRight, CreditCard, Layers, Loader2, Minus, Plus, QrCode, ShoppingCart, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 
 export default function POSPage() {
@@ -11,6 +11,7 @@ export default function POSPage() {
 
     const [categories, setCategories] = useState<Category[]>([]);
     const [items, setItems] = useState<MenuItem[]>([]);
+    const [voidReasons, setVoidReasons] = useState<VoidReason[]>([]);
     const [savedChecks, setSavedChecks] = useState<Order[]>([]);
     const [activeCategory, setActiveCategory] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
@@ -21,6 +22,7 @@ export default function POSPage() {
 
     const [notesModalOpen, setNotesModalOpen] = useState(false);
     const [tenderModalOpen, setTenderModalOpen] = useState(false);
+    const [voidModalOpen, setVoidModalOpen] = useState(false);
     const [savedChecksModalOpen, setSavedChecksModalOpen] = useState(false);
     const [activeCartIndex, setActiveCartIndex] = useState<number | null>(null);
     const [tempNote, setTempNote] = useState("");
@@ -32,8 +34,10 @@ export default function POSPage() {
             try {
                 const cats = await getCategories();
                 const its = await getMenuItems();
+                const voids = await getVoidReasons();
                 setCategories(cats);
                 setItems(its);
+                setVoidReasons(voids.filter(v => v.isActive));
                 if (cats.length > 0) setActiveCategory(cats[0].id);
             } catch (error) {
                 console.error("Error loading POS data:", error);
@@ -49,8 +53,9 @@ export default function POSPage() {
             const checks = await getSavedOrders();
             setSavedChecks(checks);
             setSavedChecksModalOpen(true);
-        } catch (e) {
+        } catch (e: any) {
             console.error(e);
+            alert("Error: " + e.message + "\n\nPlease open your Browser Console (F12) and click the Firebase link to create the required database index!");
         }
         setIsProcessing(false);
     };
@@ -87,6 +92,40 @@ export default function POSPage() {
     const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
     const tax = subtotal * 0.08; // 8% Default Tax
     const total = subtotal + tax;
+
+    const handleVoidCheckClick = () => {
+        if (!currentOrderId) {
+            setCart([]);
+            return;
+        }
+        setVoidModalOpen(true);
+    };
+
+    const confirmVoidCheck = async (reason: string) => {
+        if (!currentOrderId) return;
+        setIsProcessing(true);
+        try {
+            await updateOrder(currentOrderId, {
+                status: "cancelled",
+                voidReason: reason,
+                voidedBy: user?.uid
+            });
+            setCart([]);
+            setCurrentOrderId(null);
+            setCurrentOrderNumber(null);
+            setVoidModalOpen(false);
+        } catch (e) {
+            console.error(e);
+            alert("Failed to void check");
+        }
+        setIsProcessing(false);
+    };
+
+    const removeItemCompletely = (index: number) => {
+        const newCart = [...cart];
+        newCart.splice(index, 1);
+        setCart(newCart);
+    };
 
     const handleSaveCheck = async () => {
         if (cart.length === 0) return;
@@ -240,14 +279,19 @@ export default function POSPage() {
                                         <h4 className="text-white font-medium">{item.name}</h4>
                                         <p className="text-primary font-semibold text-sm">${(item.price * item.quantity).toFixed(2)}</p>
                                     </div>
-                                    <div className="flex items-center gap-2 bg-surface rounded-lg p-1 border border-border">
-                                        <button onClick={() => updateQuantity(index, -1)} className="w-8 h-8 flex items-center justify-center rounded-md bg-transparent hover:bg-border text-white">
-                                            <Minus className="w-4 h-4" />
+                                    <div className="flex items-center gap-2">
+                                        <button onClick={() => removeItemCompletely(index)} className="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-red-500 hover:bg-red-500/10 transition-colors" title="Remove Item">
+                                            <Trash2 className="w-4 h-4" />
                                         </button>
-                                        <span className="w-6 text-center text-white font-medium">{item.quantity}</span>
-                                        <button onClick={() => updateQuantity(index, 1)} className="w-8 h-8 flex items-center justify-center rounded-md bg-primary hover:bg-primary-hover text-white">
-                                            <Plus className="w-4 h-4" />
-                                        </button>
+                                        <div className="flex items-center gap-2 bg-surface rounded-lg p-1 border border-border">
+                                            <button onClick={() => updateQuantity(index, -1)} className="w-8 h-8 flex items-center justify-center rounded-md bg-transparent hover:bg-border text-white">
+                                                <Minus className="w-4 h-4" />
+                                            </button>
+                                            <span className="w-6 text-center text-white font-medium">{item.quantity}</span>
+                                            <button onClick={() => updateQuantity(index, 1)} className="w-8 h-8 flex items-center justify-center rounded-md bg-primary hover:bg-primary-hover text-white">
+                                                <Plus className="w-4 h-4" />
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -283,6 +327,14 @@ export default function POSPage() {
                     </div>
 
                     <div className="flex gap-2">
+                        <button
+                            disabled={cart.length === 0 || isProcessing}
+                            onClick={handleVoidCheckClick}
+                            className="bg-surface hover:bg-red-500/20 text-gray-400 hover:text-red-500 disabled:opacity-50 border border-border px-4 rounded-xl flex items-center justify-center transition-colors"
+                            title="Void Check"
+                        >
+                            <Trash2 className="w-5 h-5" />
+                        </button>
                         <button
                             disabled={cart.length === 0 || isProcessing}
                             onClick={handleSaveCheck}
@@ -362,7 +414,41 @@ export default function POSPage() {
                             </button>
                         </div>
 
-                        <button onClick={() => setTenderModalOpen(false)} className="py-3 font-medium text-gray-400 hover:text-white transition-colors">
+                        <button onClick={() => setTenderModalOpen(false)} className="py-3 font-medium text-gray-400 hover:text-white transition-colors border border-border rounded-xl mt-2">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Void Modal */}
+            {voidModalOpen && (
+                <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+                    <div className="bg-surface border border-border rounded-2xl w-full max-w-md p-6 shadow-2xl flex flex-col">
+                        <div className="mb-6">
+                            <h2 className="text-xl font-bold text-white text-center">Void Check Reason</h2>
+                            <p className="text-gray-400 text-center text-sm mt-1">Please select a reason for voiding this saved check.</p>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-3 mb-6 max-h-64 overflow-y-auto pr-2">
+                            {voidReasons.map(vr => (
+                                <button
+                                    key={vr.id}
+                                    onClick={() => confirmVoidCheck(vr.reason)}
+                                    className="p-4 rounded-xl border border-border hover:border-red-500 bg-background text-white font-medium transition-colors text-left"
+                                >
+                                    {vr.reason}
+                                </button>
+                            ))}
+                            {voidReasons.length === 0 && (
+                                <div className="py-4 text-center text-gray-500 w-full rounded-xl bg-background border border-border">
+                                    No void reasons configured in Admin panel.
+                                    <button onClick={() => confirmVoidCheck("No Reason Specified")} className="w-full mt-4 text-primary underline">Force Void Anyway</button>
+                                </div>
+                            )}
+                        </div>
+
+                        <button disabled={isProcessing} onClick={() => setVoidModalOpen(false)} className="py-4 font-medium text-gray-400 hover:text-white transition-colors bg-surface border border-border rounded-xl">
                             Cancel
                         </button>
                     </div>
