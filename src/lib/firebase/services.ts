@@ -47,6 +47,18 @@ export async function createOrder(order: Omit<Order, "id" | "createdAt" | "updat
     return newRef.id;
 }
 
-export async function updateOrderStatus(id: string, status: Order["status"]) {
-    await updateDoc(doc(db, "orders", id), { status, updatedAt: Date.now() });
+export async function updateOrderStatus(id: string, status: Order["status"], paymentMethod?: string) {
+    const data: any = { status, updatedAt: Date.now() };
+    if (paymentMethod) data.paymentMethod = paymentMethod;
+    await updateDoc(doc(db, "orders", id), data);
+}
+
+export async function updateOrder(id: string, orderUpdates: Partial<Order>) {
+    await updateDoc(doc(db, "orders", id), { ...orderUpdates, updatedAt: Date.now() });
+}
+
+export async function getSavedOrders(): Promise<Order[]> {
+    const q = query(collection(db, "orders"), where("status", "==", "saved"), orderBy("updatedAt", "desc"));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() as any) } as Order));
 }

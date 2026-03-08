@@ -26,7 +26,7 @@ export interface MenuItem {
     inventoryCount?: number;
 }
 
-export type OrderStatus = "new" | "preparing" | "ready" | "completed" | "cancelled";
+export type OrderStatus = "saved" | "new" | "preparing" | "ready" | "completed" | "cancelled";
 
 export interface OrderItem {
     menuItemId: string;
