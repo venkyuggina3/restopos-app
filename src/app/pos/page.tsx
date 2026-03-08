@@ -1,20 +1,26 @@
 "use client";
 
 import { useAuth } from "@/lib/context/AuthContext";
-import { createOrder, getCategories, getMenuItems, getSavedOrders, getVoidReasons, updateOrder } from "@/lib/firebase/services";
-import { Category, MenuItem, Order, OrderItem, VoidReason } from "@/lib/types";
-import { Banknote, Bookmark, ChevronRight, CreditCard, Layers, Loader2, Minus, Plus, QrCode, ShoppingCart, Trash2 } from "lucide-react";
+import { createOrder, getCategories, getMenuItems, getSavedOrders, getTerminals, getVoidReasons, updateOrder } from "@/lib/firebase/services";
+import { Category, MenuItem, Order, OrderItem, Terminal, VoidReason } from "@/lib/types";
+import { Banknote, Bookmark, ChevronRight, CreditCard, Layers, Loader2, Minus, MonitorSmartphone, Plus, QrCode, ShoppingCart, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 
 export default function POSPage() {
     const { user, logout } = useAuth();
 
     const [categories, setCategories] = useState<Category[]>([]);
+    const [allCategories, setAllCategories] = useState<Category[]>([]);
     const [items, setItems] = useState<MenuItem[]>([]);
     const [voidReasons, setVoidReasons] = useState<VoidReason[]>([]);
     const [savedChecks, setSavedChecks] = useState<Order[]>([]);
     const [activeCategory, setActiveCategory] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
+
+    const [terminal, setTerminal] = useState<Terminal | null>(null);
+    const [showRegistration, setShowRegistration] = useState(false);
+    const [allTerminals, setAllTerminals] = useState<Terminal[]>([]);
+    const [regInput, setRegInput] = useState("");
 
     const [cart, setCart] = useState<OrderItem[]>([]);
     const [currentOrderId, setCurrentOrderId] = useState<string | null>(null);
@@ -32,13 +38,32 @@ export default function POSPage() {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const cats = await getCategories();
-                const its = await getMenuItems();
-                const voids = await getVoidReasons();
-                setCategories(cats);
+                const [cats, its, voids, terms] = await Promise.all([
+                    getCategories(),
+                    getMenuItems(),
+                    getVoidReasons(),
+                    getTerminals()
+                ]);
+
+                setAllCategories(cats);
                 setItems(its);
                 setVoidReasons(voids.filter(v => v.isActive));
-                if (cats.length > 0) setActiveCategory(cats[0].id);
+
+                const activeTerms = terms.filter(t => t.isActive);
+                setAllTerminals(activeTerms);
+
+                const savedId = localStorage.getItem("restopos_terminal_id");
+                const found = activeTerms.find(t => t.id === savedId);
+
+                if (found) {
+                    setTerminal(found);
+                    const visibleCats = cats.filter(c => !found.config.hideCategories?.includes(c.id));
+                    setCategories(visibleCats);
+                    if (visibleCats.length > 0) setActiveCategory(visibleCats[0].id);
+                } else {
+                    setCategories(cats);
+                    setShowRegistration(true);
+                }
             } catch (error) {
                 console.error("Error loading POS data:", error);
             }
@@ -46,6 +71,21 @@ export default function POSPage() {
         };
         fetchData();
     }, []);
+
+    const registerDevice = (termId: string) => {
+        const found = allTerminals.find(t => t.id === termId);
+        if (found) {
+            localStorage.setItem("restopos_terminal_id", termId);
+            setTerminal(found);
+            setShowRegistration(false);
+
+            const visibleCats = allCategories.filter(c => !found.config.hideCategories?.includes(c.id));
+            setCategories(visibleCats);
+            if (visibleCats.length > 0) setActiveCategory(visibleCats[0].id);
+        } else {
+            alert("Invalid Terminal ID or Terminal is Disabled.");
+        }
+    };
 
     const fetchSavedChecks = async () => {
         setIsProcessing(true);
@@ -147,6 +187,7 @@ export default function POSPage() {
                     tax,
                     total,
                     cashierId: user?.uid,
+                    terminalId: terminal?.id,
                 });
             }
             setCart([]);
@@ -180,7 +221,8 @@ export default function POSPage() {
                     tax,
                     total,
                     cashierId: user?.uid,
-                    paymentMethod: method
+                    paymentMethod: method,
+                    terminalId: terminal?.id
                 });
             }
             setCart([]);
@@ -239,14 +281,22 @@ export default function POSPage() {
             <div className="w-96 flex-shrink-0 bg-surface border-l border-border flex flex-col shadow-2xl relative z-10 transition-transform">
                 <div className="p-4 border-b border-border bg-background">
                     <div className="flex justify-between items-center mb-4">
-                        <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold">
-                                {user?.name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || "?"}
+                        <div className="flex flex-col gap-1">
+                            <div className="flex items-center gap-2">
+                                <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold">
+                                    {user?.name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || "?"}
+                                </div>
+                                <div>
+                                    <h3 className="text-white font-medium text-sm leading-none truncate max-w-[120px]">{user?.name || user?.email}</h3>
+                                    <p className="text-gray-400 text-xs mt-1 capitalize">{user?.role || "Staff"}</p>
+                                </div>
                             </div>
-                            <div>
-                                <h3 className="text-white font-medium text-sm leading-none truncate max-w-[120px]">{user?.name || user?.email}</h3>
-                                <p className="text-gray-400 text-xs mt-1 capitalize">{user?.role || "Staff"}</p>
-                            </div>
+                            {terminal && (
+                                <div className="flex items-center gap-1.5 mt-2 bg-background border border-border px-2 py-1 rounded-md text-gray-400 text-xs w-fit">
+                                    <MonitorSmartphone className="w-3 h-3 text-primary" />
+                                    {terminal.name}
+                                </div>
+                            )}
                         </div>
                         <div className="flex gap-2">
                             <button onClick={fetchSavedChecks} className="p-2 border border-border bg-surface hover:bg-surface-hover text-gray-300 rounded-lg transition-colors" title="Saved Checks">
@@ -489,6 +539,52 @@ export default function POSPage() {
                                     </div>
                                 ))
                             )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Device Registration Overlay */}
+            {showRegistration && (
+                <div className="fixed inset-0 bg-black/95 z-[100] flex flex-col items-center justify-center p-4">
+                    <div className="max-w-md w-full text-center space-y-6">
+                        <MonitorSmartphone className="w-20 h-20 text-primary mx-auto opacity-80" />
+                        <h1 className="text-3xl font-bold text-white">Unregistered Device</h1>
+                        <p className="text-gray-400">This tablet/computer is not mapped to a Terminal ID. Please enter the ID or select it below.</p>
+
+                        <div className="bg-surface border border-border rounded-2xl p-6 shadow-2xl space-y-4">
+                            <input
+                                type="text"
+                                placeholder="Enter Terminal ID (e.g. TER-123)"
+                                value={regInput}
+                                onChange={e => setRegInput(e.target.value)}
+                                className="w-full bg-background border border-border rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-primary outline-none text-center font-mono text-lg"
+                            />
+                            <button
+                                onClick={() => registerDevice(regInput)}
+                                className="w-full bg-primary hover:bg-primary-hover text-white py-3 rounded-xl font-bold transition-colors"
+                            >
+                                Register Terminal
+                            </button>
+
+                            <div className="pt-4 mt-4 border-t border-border">
+                                <p className="text-sm text-gray-500 mb-3">Or select from available Terminals:</p>
+                                <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto">
+                                    {allTerminals.map(t => (
+                                        <button
+                                            key={t.id}
+                                            onClick={() => registerDevice(t.id)}
+                                            className="p-3 border border-border hover:border-primary bg-background rounded-xl text-left transition-colors"
+                                        >
+                                            <div className="font-bold text-white">{t.name}</div>
+                                            <div className="text-xs text-gray-500 font-mono mt-1">{t.id}</div>
+                                        </button>
+                                    ))}
+                                    {allTerminals.length === 0 && (
+                                        <div className="text-xs text-red-400">No active terminals found in Admin panel.</div>
+                                    )}
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>

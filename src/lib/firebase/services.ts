@@ -1,5 +1,5 @@
 import { collection, doc, getDocs, orderBy, query, setDoc, updateDoc, where } from "firebase/firestore";
-import { Category, MenuItem, Order } from "../types";
+import { Category, MenuItem, Order, Terminal } from "../types";
 import { db } from "./config";
 
 // CATEGORIES
@@ -78,4 +78,21 @@ export async function addVoidReason(reason: string) {
 
 export async function updateVoidReason(id: string, isActive: boolean) {
     await updateDoc(doc(db, "void_reasons", id), { isActive });
+}
+
+// TERMINALS
+export async function getTerminals(): Promise<Terminal[]> {
+    const q = query(collection(db, "terminals"));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Terminal));
+}
+
+export async function addTerminal(terminal: Omit<Terminal, "id">) {
+    const newRef = doc(collection(db, "terminals"));
+    await setDoc(newRef, { ...terminal, id: newRef.id });
+    return newRef.id;
+}
+
+export async function updateTerminal(id: string, updates: Partial<Terminal>) {
+    await updateDoc(doc(db, "terminals", id), updates);
 }

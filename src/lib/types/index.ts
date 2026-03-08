@@ -51,6 +51,7 @@ export interface Order {
     isGuest?: boolean;
     voidReason?: string;
     voidedBy?: string;
+    terminalId?: string;
 }
 
 export interface Transaction {
@@ -66,4 +67,15 @@ export interface VoidReason {
     id: string;
     reason: string;
     isActive: boolean;
+}
+
+export interface Terminal {
+    id: string;
+    name: string;
+    isActive: boolean;
+    config: {
+        orderType: "dine-in" | "takeout" | "delivery";
+        hideCategories: string[]; // Array of Category IDs this terminal shouldn't show (e.g. Bar menu)
+        receiptPrinter?: string;
+    };
 }

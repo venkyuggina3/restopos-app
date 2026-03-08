@@ -1,5 +1,5 @@
 import ProtectedRoute from "@/components/ProtectedRoute";
-import { LayoutDashboard, Menu as MenuIcon } from "lucide-react";
+import { LayoutDashboard, Menu as MenuIcon, MonitorSmartphone } from "lucide-react";
 import Link from "next/link";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -11,6 +11,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     <nav className="space-y-2 flex-1">
                         <Link href="/admin" className="flex items-center gap-3 px-4 py-3 text-gray-300 hover:text-white hover:bg-surface-hover rounded-xl transition-colors">
                             <LayoutDashboard className="w-5 h-5" /> Dashboard
+                        </Link>
+                        <Link href="/admin/terminals" className="flex items-center gap-3 px-4 py-3 text-gray-300 hover:text-white hover:bg-surface-hover rounded-xl transition-colors">
+                            <MonitorSmartphone className="w-5 h-5" /> Terminals
                         </Link>
                         <Link href="/admin/menu" className="flex items-center gap-3 px-4 py-3 text-gray-300 hover:text-white hover:bg-surface-hover rounded-xl transition-colors">
                             <MenuIcon className="w-5 h-5" /> Menu Management
